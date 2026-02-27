@@ -3,7 +3,11 @@ import MenuIcon from "@mui/icons-material/Menu"
 import { Link } from 'react-router-dom'
 import { useState } from "react";
 
+import { useAuth } from "./AuthContext";
+
 export default function TopBar() {
+
+    const { isLoggedIn, login, logout } = useAuth();
     
     const [ email, setEmail ] = useState("");
     const [ password, setPassword ] = useState("");
@@ -17,7 +21,7 @@ export default function TopBar() {
         
         const data = await res.json()
         if (res.ok) {
-                localStorage.setItem("token", data.token)
+                login(data.token);
         }
     }
     
@@ -35,17 +39,24 @@ export default function TopBar() {
                     >
                         <MenuIcon />
                     </IconButton>
-                    <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-                        Info
+                    <Typography variant="h6" component={Link} to="/" sx={{ flexGrow: 1, textDecoration: "none", color: "inherit"}}>
+                        TypeWriter
                     </Typography>
-                    <TextField variant="outlined" size="small" placeholder="Email"
-                        sx={{ backgroundColor: "white", borderRadius: 1, mr: 1 }}
-                        onChange={e => setEmail(e.target.value)} />
-                    <TextField variant="outlined" size="small" placeholder="Password" type="password"
-                        sx={{ backgroundColor: "white", borderRadius: 1, mr: 1 }}
-                        onChange={e => setPassword(e.target.value)} />
-                    <Button color="inherit" onClick={handleLogin}>Login</Button>
-                    <Button color="inherit" component={Link} to="/register">Register</Button>
+                    {isLoggedIn && (
+                        <Button color="inherit" onClick={logout}>Logout</Button>
+                    )}
+                    {!isLoggedIn && (
+                        <>
+                            <TextField variant="outlined" size="small" placeholder="Email"
+                                sx={{ backgroundColor: "white", borderRadius: 1, mr: 1 }}
+                                onChange={e => setEmail(e.target.value)} />
+                            <TextField variant="outlined" size="small" placeholder="Password" type="password"
+                                sx={{ backgroundColor: "white", borderRadius: 1, mr: 1 }}
+                                onChange={e => setPassword(e.target.value)} />
+                            <Button color="inherit" onClick={handleLogin}>Login</Button>
+                            <Button color="inherit" component={Link} to="/register">Register</Button>
+                        </>
+                    )}
                 </Toolbar>
             </AppBar>
         </Box>

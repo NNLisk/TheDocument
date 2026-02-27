@@ -1,6 +1,5 @@
 import express, { Request, Response } from "express";
 import cors, { CorsOptions } from "cors";
-
 import mongoose, { mongo } from "mongoose";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
@@ -8,8 +7,14 @@ import dotenv from "dotenv";
 import path from "node:path";
 import { validationResult } from "express-validator";
 
-import User, { IUser } from "./models/User";
+import User from "./models/User";
+import Folder from "./models/Folder";
+import File from "./models/File";
+
 import { registerValidator } from "./middleware/inputValidation";
+import { newRegistration } from "./utils/userUtils";
+import { AuthenticationError } from "./errors/errors";
+import { AuthRequest, validateToken } from "./middleware/tokenValidation";
 
 dotenv.config();
 
@@ -25,6 +30,8 @@ const connectDB = async () => {
         await mongoose.connect(MONGO_URI);
         console.log("Database Connected");
         await User.init();
+        await Folder.init();
+        await File.init();
     } catch (error) {
         console.log("Database connection failed");
         process.exit(1);
@@ -34,38 +41,13 @@ const connectDB = async () => {
 connectDB();
 app.use(express.json());
 
-// TYPES
-
-type TUser = {
-    email: string,
-    password: string,
-    isAdmin: boolean
-}
-
-
-async function newRegistration(email: string, username: string, password: string, isAdmin: boolean) {
-    console.log("creating a new user");
-    if (await User.findOne({email})) {
-        console.log("user already exists")
-        throw new AuthenticationError(`User ${email} already exists`);
-    } else {
-        const new_user = new User({email, username, password, isAdmin});
-        console.log("Database: new user")
-        await new_user.save();
-        return new_user;
-    }
-}
-
-
 // ROUTES
-
 
 app.post("/api/user/register", 
     registerValidator, 
     async(req: Request, res: Response) => {
         const email = req.body.email;
         const username = req.body.username;
-        const isAdmin = req.body.isAdmin;
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
             return res.status(400).json({
@@ -75,7 +57,7 @@ app.post("/api/user/register",
         const pw = await bcrypt.hash(req.body.password, SALT_ROUNDS);
         console.log(pw);
         try {
-            const newUser = await newRegistration(email, username, pw, isAdmin);
+            const newUser = await newRegistration(email, username, pw);
             return res.status(200).json(newUser);
         } catch (e) {
             if (e instanceof AuthenticationError) {
@@ -94,13 +76,60 @@ app.post("/api/user/login", async (req, res) => {
 
 
     const isValid = await bcrypt.compare(password, user.password);
-    if (!isValid) return res.status(401).json({});
+    if (!isValid) return res.status(401).json({message: "You inserted a wrong password"});
 
     const secret = process.env.SECRET;
-    if (!secret) return res.status(500).json({});
-    const token = jwt.sign({_id: user._id, username: user.username || "guest", isAdmin: user.isAdmin}, secret, {expiresIn: "1h"});
+    if (!secret) return res.status(500).json({message: "Internal server error: missing secret key"});
+    const token = jwt.sign({_id: user._id, username: user.username || "guest"}, secret, {expiresIn: "1h"});
     return res.status(200).json({ token });
 })
+
+
+app.get('/api/user/foldercontent', validateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    const folders = await Folder.find({ 
+      owner: req.user!._id,
+      parent: req.query.parent || null 
+    });
+
+    const files = await File.find({
+        owner: req.user!._id,
+        parent: req.query.parent || null,
+    })
+    res.status(200).json({folders, files});
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch contents" });
+  }
+})
+
+app.post('/api/user/newfolder', validateToken, async (req: AuthRequest, res: Response) => {
+
+})
+
+app.delete('/api/user/deletefolder', validateToken, async (req: AuthRequest, res: Response) => {
+
+})
+
+app.post('/api/user/newfile', validateToken, async (req: AuthRequest, res: Response) => {
+    const owner = req.user!._id
+    
+    const newFile = new File({name: 'untitled', owner, content: ''})
+    await newFile.save();
+    
+    return res.status(200).json(newFile);
+})
+
+app.get('/api/user/file', validateToken, async (req: AuthRequest, res: Response) => {
+    const file = req.query.fileid;
+
+    
+})
+
+app.delete('/api/user/deletefile', validateToken, async (req: AuthRequest, res: Response) => {
+    
+})
+
+// Cors
 
 if (process.env.NODE_ENV === "development") {
     const corsOptions: CorsOptions = {
@@ -119,14 +148,3 @@ if (process.env.NODE_ENV === "development") {
 app.listen(port, () => {
     console.log(`Server running on http://localhost:${port}`)
 })
-
-
-// ERRORS
-
-
-class AuthenticationError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "UserAlreadyExistsError";
-  }
-}
