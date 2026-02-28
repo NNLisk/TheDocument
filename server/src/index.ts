@@ -119,6 +119,7 @@ app.post('/api/user/newfile', validateToken, async (req: AuthRequest, res: Respo
     return res.status(200).json(newFile);
 })
 
+// updating file content
 app.put('/api/user/file/:id', validateToken, async (req: AuthRequest, res: Response) => {
 
     const fileid = req.params.id;
@@ -135,12 +136,13 @@ app.put('/api/user/file/:id', validateToken, async (req: AuthRequest, res: Respo
     }
 })
 
+// fetchign file
 app.get('/api/user/file/:id', validateToken, async (req: AuthRequest, res: Response) => {
     
     const fileid = req.params.id;
 
     try {
-        const file = await File.findOne({_id: fileid})
+        const file = await File.findOne({ _id: fileid })
         if (!file) return res.status(404).json({ message: 'not found' });
         if (file.owner.toString() !== req.user!._id.toString()) return res.status(403).json({ message: 'unauthorized' });
         return res.status(200).json({file})
@@ -149,7 +151,8 @@ app.get('/api/user/file/:id', validateToken, async (req: AuthRequest, res: Respo
     }
 })
 
-app.delete('/api/user/deletefile/:id', validateToken, async (req: AuthRequest, res: Response) => {
+// deleting files
+app.delete('/api/user/file/:id', validateToken, async (req: AuthRequest, res: Response) => {
     const id = req.params.id;
     try {
         const { deletedCount } = await File.deleteOne({_id: id})
@@ -165,7 +168,26 @@ app.delete('/api/user/deletefile/:id', validateToken, async (req: AuthRequest, r
     }
 })
 
-// Cors
+// renaming a file
+app.put('/api/user/renamefile/:id', validateToken, async (req: AuthRequest, res:Response) => {
+
+    const fileid = req.params.id;
+    const name = req.body.name;
+    try {
+        const file = await File.findOne({ _id: fileid })
+        if (!file) return res.status(404).json({ message: 'not found' });
+        if (!name) return res.status(400).json({message: 'no name given'})
+        if (file.owner.toString() !== req.user!._id.toString()) return res.status(403).json({ message: 'unauthorized' });
+        
+        file.name = name;
+        await file.save();
+        return res.status(200).json({message: `Updated file ${fileid}`})
+    } catch (error) {
+        return res.status(500).json({ message: 'something went wrong' })
+    }
+})
+
+// Cors from week 12 assignments, since its the same stack
 
 if (process.env.NODE_ENV === "development") {
     const corsOptions: CorsOptions = {
