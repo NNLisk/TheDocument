@@ -3,9 +3,10 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 
 import TopBar from './components/Header'
 import RegisterForm from './components/RegisterForm'
-import { AuthProvider } from './components/AuthContext'
+import Dokument from './components/Dokument'
 import HomePage from './components/HomePage'
-import { useAuth } from './components/AuthContext'
+
+import { AuthProvider } from './components/AuthContext'
 
 function App() {
 
@@ -21,6 +22,11 @@ function App() {
           <Route path='/register' element={
             <>
               <RegisterForm></RegisterForm>
+            </>
+          }/>
+          <Route path='/Document/:id' element={
+            <>
+              <Dokument></Dokument>
             </>
           }/>
         </Routes>

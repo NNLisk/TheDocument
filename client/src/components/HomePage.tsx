@@ -5,7 +5,7 @@ import {
     Box, 
     Button,
     Card,
-    CardActionArea,
+    CardActions,
     CardContent,
     Grid,
     Typography
@@ -18,7 +18,7 @@ export default function HomePage() {
     const { isLoggedIn, token } = useAuth();
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
-    const [files, setFiles] = useState([]);
+    const [files, setFiles] = useState<any[]>([]);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -50,7 +50,8 @@ export default function HomePage() {
             if (!response.ok) {
                 throw new Error(data.message)
             }
-            navigate(`/document/${data._id}`)
+            setFiles((prev:any) => [...prev, data ])
+            //navigate(`/document/${data._id}`)
             
             
         } catch (err) {
@@ -66,8 +67,27 @@ export default function HomePage() {
 
 
     // Handler for the file deletion
-    async function handleDelete() {
+    async function handleDelete(id: string) {
 
+        try {
+            const response = await fetch(`/api/user/deletefile/${id}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'Application/json',
+                    'Authorization': `Bearer ${token}`
+                }
+            })
+
+            const data = await response.json()
+
+            if (!response.ok) {
+                throw new Error(data.message || 'Something went wrong!')
+            }
+
+            setFiles((prev: any) => prev.filter((file: any) => file._id !== id))
+        } catch (error) {
+            
+        }
     }
 
     //handler for filerename
@@ -93,21 +113,21 @@ export default function HomePage() {
                     <Grid container spacing={2} mt={2}>
                         {files.map((file: any) => (
                             <Grid size={{ xs: 12, sm: 6, md: 4}}  key={file._id}>
-                                <Card sx={{ cursor: 'pointer' }} onClick={() => navigate(`/document/${file._id}`)}>
-                                <CardContent>
+                                <Card sx={{ cursor: 'pointer' }} >
+                                <CardContent onClick={() => navigate(`/document/${file._id}`)}>
                                     <Typography variant="h6">{file.name}</Typography>
                                     <Typography variant="body2" color="text.secondary">
                                     {new Date(file.updatedAt).toLocaleDateString()}
                                     </Typography>
                                 </CardContent>
-                                <CardActionArea>
-                                    <Button onClick={handleDelete}>
+                                <CardActions>
+                                    <Button onClick={(e) => {e.stopPropagation(); handleDelete(file._id)}}>
                                         DELETE
                                     </Button>
                                     <Button onClick={handleRename}>
                                         RENAME
                                     </Button>
-                                </CardActionArea>
+                                </CardActions>
                                 </Card>
                             </Grid>
                         ))}

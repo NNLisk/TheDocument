@@ -1,6 +1,6 @@
 import { Box, AppBar, Toolbar, Typography, Button, IconButton, TextField} from "@mui/material"
 import MenuIcon from "@mui/icons-material/Menu"
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useState } from "react";
 
 import { useAuth } from "./AuthContext";
@@ -8,6 +8,7 @@ import { useAuth } from "./AuthContext";
 export default function TopBar() {
 
     const { isLoggedIn, login, logout } = useAuth();
+    const navigate = useNavigate();
     
     const [ email, setEmail ] = useState("");
     const [ password, setPassword ] = useState("");
@@ -27,7 +28,7 @@ export default function TopBar() {
     
     
     return (
-        <Box sx={{ flexGrow: 1 }}>
+        <Box sx={{ flexGrow: 1}}>
             <AppBar position="static">
                 <Toolbar>
                     <IconButton
@@ -43,7 +44,7 @@ export default function TopBar() {
                         TypeWriter
                     </Typography>
                     {isLoggedIn && (
-                        <Button color="inherit" onClick={logout}>Logout</Button>
+                        <Button color="inherit" onClick={() => {logout; navigate('/')}}>Logout</Button>
                     )}
                     {!isLoggedIn && (
                         <>

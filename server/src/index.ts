@@ -107,7 +107,7 @@ app.post('/api/user/newfolder', validateToken, async (req: AuthRequest, res: Res
 })
 
 app.delete('/api/user/deletefolder', validateToken, async (req: AuthRequest, res: Response) => {
-
+    
 })
 
 app.post('/api/user/newfile', validateToken, async (req: AuthRequest, res: Response) => {
@@ -119,14 +119,50 @@ app.post('/api/user/newfile', validateToken, async (req: AuthRequest, res: Respo
     return res.status(200).json(newFile);
 })
 
-app.get('/api/user/file', validateToken, async (req: AuthRequest, res: Response) => {
-    const file = req.query.fileid;
+app.put('/api/user/file/:id', validateToken, async (req: AuthRequest, res: Response) => {
 
-    
+    const fileid = req.params.id;
+
+    try {
+        const file = await File.findOne({_id: fileid})
+        if (!file) return res.status(404).json({message: 'not found'});
+        if (file.owner.toString() !== req.user!._id.toString()) return res.status(403).json({message: 'unauthorized'});
+        file.content = req.body.content;
+        await file.save()
+        return res.status(200).json({message: `updated ${fileid}`})
+    } catch (error) {
+        return res.status(500).json({ message: 'something went wrong' })
+    }
 })
 
-app.delete('/api/user/deletefile', validateToken, async (req: AuthRequest, res: Response) => {
+app.get('/api/user/file/:id', validateToken, async (req: AuthRequest, res: Response) => {
     
+    const fileid = req.params.id;
+
+    try {
+        const file = await File.findOne({_id: fileid})
+        if (!file) return res.status(404).json({ message: 'not found' });
+        if (file.owner.toString() !== req.user!._id.toString()) return res.status(403).json({ message: 'unauthorized' });
+        return res.status(200).json({file})
+    } catch (error) {
+        return res.status(500).json({ message: 'something went wrong' })
+    }
+})
+
+app.delete('/api/user/deletefile/:id', validateToken, async (req: AuthRequest, res: Response) => {
+    const id = req.params.id;
+    try {
+        const { deletedCount } = await File.deleteOne({_id: id})
+        
+        if (deletedCount == 1) {
+            return res.status(200).json({message: `deleted${id}`})
+        } else {
+            return res.status(404).json({ message: 'File not found' })
+        }
+
+    } catch (error) {
+        res.status(500).json({message: 'deletion failed'})
+    }
 })
 
 // Cors
