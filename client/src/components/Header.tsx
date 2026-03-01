@@ -5,7 +5,13 @@ import { useState } from "react";
 
 import { useAuth } from "./AuthContext";
 
-export default function TopBar() {
+type themeprops = {
+    lightdarkmode: 'light' | 'dark';
+    setlightdarkmode: React.Dispatch<React.SetStateAction<'light' | 'dark'>>;
+}
+
+export default function TopBar({lightdarkmode, setlightdarkmode}: themeprops) {
+
 
     const { isLoggedIn, login, logout } = useAuth();
     const navigate = useNavigate();
@@ -36,13 +42,15 @@ export default function TopBar() {
                         edge="start"
                         color="inherit"
                         aria-label="menu"
-                        sx={{ mr: 2 }}
-                    >
-                        <MenuIcon />
+                        sx={{ mr: 2 }}>
+                    <MenuIcon />
                     </IconButton>
                     <Typography variant="h6" component={Link} to="/" sx={{ flexGrow: 1, textDecoration: "none", color: "inherit"}}>
                         TypeWriter
                     </Typography>
+                    <Button color="inherit" onClick={() => {setlightdarkmode(lightdarkmode === 'light' ? 'dark' : 'light');}}>
+                        Use {lightdarkmode === 'light' ? 'Dark' : 'Light'} Mode
+                    </Button>
                     {isLoggedIn && (
                         <Button color="inherit" onClick={() => {logout(); navigate('/')}}>Logout</Button>
                     )}

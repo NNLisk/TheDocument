@@ -171,18 +171,50 @@ app.get('/api/user/file/:id', validateToken, async (req: AuthRequest, res: Respo
 app.delete('/api/user/file/:id', validateToken, async (req: AuthRequest, res: Response) => {
     const id = req.params.id;
     try {
-        
-        const { deletedCount } = await File.deleteOne({_id: id})
-        
-        if (deletedCount == 1) {
-            return res.status(200).json({message: `deleted${id}`})
-        } else {
-            return res.status(404).json({ message: 'File not found' })
-        }
+        const file = await File.findOne({_id: id})
+        if (!file) return res.status(404).json({message: 'file not found'});
+        const isOwner = file.owner.equals(req.user!._id);
+        const hasEditRights = file.usersWithEditRights.some(id => id.equals(req.user!._id));
+        if (!isOwner && !hasEditRights) return res.status(403).json({message: 'unauthorized'});
+
+        file.trashcanned = true;
+        await file.save()
+        return res.status(200).json({file})
 
     } catch (error) {
         res.status(500).json({message: 'deletion failed'})
     }
+})
+
+app.delete('/api/user/throwtrashout', validateToken, async (req: AuthRequest, res: Response) => {
+    const userid = req.user!._id;
+
+    try {
+        const deleteManyResult = await File.deleteMany({owner: userid, trashcanned: true})
+
+        return res.status(200).json({deletedCount: deleteManyResult.deletedCount})
+    } catch (error) {
+        res.status(500).json({message: 'deletion failed'})
+    }
+})
+
+app.put('/api/user/restorefilefromtrash/:id', validateToken, async (req: AuthRequest, res: Response) => {
+    const id = req.params.id;
+    try {
+        const file = await File.findOne({_id: id})
+        if (!file) return res.status(404).json({message: 'file not found'});
+        const isOwner = file.owner.equals(req.user!._id);
+        const hasEditRights = file.usersWithEditRights.some(id => id.equals(req.user!._id));
+        if (!isOwner && !hasEditRights) return res.status(403).json({message: 'unauthorized'});
+
+        file.trashcanned = false;
+        await file.save()
+        return res.status(200).json({file})
+
+    } catch (error) {
+        res.status(500).json({message: 'deletion failed'})
+    }
+
 })
 
 // renaming a file
@@ -257,6 +289,28 @@ app.post('/api/user/giveAccessToFile/:id', validateToken, async (req: AuthReques
         res.status(200).json(updatedFile);
     } catch (error) {
         res.status(500).json({ message: "something went wrong" });
+    }
+})
+
+app.post('/api/user/cloneFile/:id', validateToken, async (req: AuthRequest, res: Response) => {
+    try {
+        const fileid = req.params.id;
+        
+        const file = await File.findOne({_id: fileid})
+        if (!file) return res.status(404).json({message: 'File not found'})
+        const isOwner = file.owner.equals(req.user!._id);
+        const hasEditRights = file.usersWithEditRights.some(id => id.equals(req.user!._id));
+
+        if (!isOwner && !hasEditRights) res.status(403).json({message: 'unauthorized'});
+        const newName = file.name + ' (copy)'
+
+        const newFile = new File({name: newName, owner: file.owner, content: file.content})
+        await newFile.save();
+
+        if (!isOwner && !hasEditRights) return res.status(403).json({message: 'unauthorized'});
+        return res.status(200).json(newFile)
+    } catch (error) {
+        
     }
 })
 

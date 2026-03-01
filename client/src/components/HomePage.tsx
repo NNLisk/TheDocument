@@ -26,6 +26,7 @@ type TFile = {
     createdAt: Date | string,
     updatedAt: Date | string,
     shareCode: string,
+    trashcanned: boolean
 }
 
 // this is the home page main view, basically everything under the header bar in the homepage
@@ -34,6 +35,9 @@ export default function HomePage() {
 
     const { isLoggedIn, token } = useAuth();
     const [errorInfoMessage, setErrorInfoMessage] = useState("");
+
+    // this for trashcan
+    const [isTrashOpen, setIsTrashOpen] = useState(false);
 
     // filestates
     const [isLoading, setIsLoading] = useState(false);
@@ -158,6 +162,30 @@ export default function HomePage() {
         }
     }
 
+    async function fileCloning(id: string) {
+
+        try {
+            const response = await fetch(`/api/user/cloneFile/${id}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'Application/json',
+                    'Authorization': `Bearer ${token}`
+                }
+            })
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.message)
+            }
+            fetchFiles();
+        } catch (error) {
+            if (error instanceof Error) {
+                setErrorInfoMessage(error.message);
+            } else {
+                setErrorInfoMessage("Something went wrong");
+            }
+        }
+    }
+
     async function requestFileShareCode(id: string) {
 
         try {
@@ -185,8 +213,64 @@ export default function HomePage() {
         }
     }
 
+    async function handleEmptyTrash() {
+        try {
+            const response = await fetch('/api/user/throwtrashout', {
+                method: "DELETE",
+                headers: {
+                    'Content-Type': 'Application/json',
+                    'Authorization': `Bearer ${token}`
+                }
+            })
+
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.message);
+            }
+
+            fetchFiles();
+
+        } catch (error) {
+            if (error instanceof Error) {
+                setErrorInfoMessage(error.message);
+            } else {
+                setErrorInfoMessage("Something went wrong");
+            }
+        }
+    }
+
+    async function handleRestore(id: string) {
+        try {
+            const response = await fetch(`/api/user/restorefilefromtrash/${id}`, {
+                method: "PUT",
+                headers: {
+                    'Content-Type': 'Application/json',
+                    'Authorization': `Bearer ${token}`
+                }
+            })
+
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.message);
+            }
+
+            fetchFiles();
+
+        } catch (error) {
+            if (error instanceof Error) {
+                setErrorInfoMessage(error.message);
+            } else {
+                setErrorInfoMessage("Something went wrong");
+            }
+        }
+    }
+
+
+    const trashedFiles = files.filter(f => f.trashcanned);
+    const activeFiles = files.filter(f => !f.trashcanned);
+
     // creates a sorted list from the dropdown option
-    const sortedFilesFromDropDown = [...files].sort((a, b) => {
+    const sortedFilesFromDropDown = [...activeFiles].sort((a, b) => {
         switch (sortOption) {
             case "dateCreatedAsc":
                 return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
@@ -200,7 +284,8 @@ export default function HomePage() {
                 return 0;
         }
     });
-    
+
+    // basically returns two types of pages only based on whether the user is logged in
     return (
         <>
             {!isLoggedIn && (
@@ -220,7 +305,14 @@ export default function HomePage() {
             )}
             { isLoggedIn && (
                 <Box sx={{margin: '0 auto', maxWidth: 1000, px: 2, marginTop: '12px'}}>
-                    <Button color='inherit' onClick={handleNewFileCreation} disabled={isLoading}>{isLoading ? "Creating document..." : "Create document"}</Button>
+                    {/* Below is some functionality, sorting and new file funcs */}
+                    <Button color='inherit' onClick={handleNewFileCreation} disabled={isLoading}>
+                        {isLoading ? "Creating document..." : "Create document"}
+                    </Button>
+
+                    <Button color="inherit" onClick={() => setIsTrashOpen(!isTrashOpen)}>
+                        {isTrashOpen ? "Close Trash" : "Trash"}
+                    </Button>
 
                     <FormControl size="small" sx={{ minWidth: 200, mt: 2 }}>
                         <InputLabel>Sort By</InputLabel>
@@ -235,15 +327,43 @@ export default function HomePage() {
                             <MenuItem value="nameDesc">Name (Z-A)</MenuItem>
                         </Select>
                     </FormControl>
+
                     {errorInfoMessage && (
                         <Typography color="error" variant="body2" textAlign="center">
                             {errorInfoMessage}
                         </Typography>
                     )}
+                    
+                    {isTrashOpen ? (
+                <Box sx={{ mt: 2 }}>
+                    <Typography variant="h6">Trash</Typography>
+                    {trashedFiles.length === 0 && <Typography>No files in trash</Typography>}
+                    {trashedFiles.map(file => (
+                    <Card key={file._id} sx={{ mb: 1 }}>
+                        <CardContent>
+                        <Typography>{file.name}</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                            Created: {new Date(file.createdAt).toLocaleDateString()}
+                        </Typography>
+                        </CardContent>
+                        <CardActions>
+                        <Button onClick={() => handleRestore(file._id)}>Restore</Button>
+                        <Button onClick={() => handleDelete(file._id)}>Delete Permanently</Button>
+                        </CardActions>
+                    </Card>
+                    ))}
+                    {trashedFiles.length > 0 && (
+                    <Button fullWidth color="error" onClick={handleEmptyTrash}>
+                        Empty Trash
+                    </Button>
+                    )}
+                </Box>
+                ) : (
 
-                    {/* Grid for file cards */}
-                    <Grid container direction="column" spacing={2} mt={2}>
-                        {sortedFilesFromDropDown.map((file: TFile) => (
+                // BELOW IS LISTING THE ACTIVE FILES
+
+                <Grid container direction="column" spacing={2} mt={2}>
+                    {sortedFilesFromDropDown.map((file: TFile) => (
                             <Grid /*size={{ xs: 12, sm: 6, md: 4}}*/ key={file._id}>
                                 <Card sx={{ cursor: 'pointer' }} >
 
@@ -255,8 +375,8 @@ export default function HomePage() {
                                     <Typography variant="body2" color="text.secondary">
                                     Last Update {new Date(file.updatedAt).toLocaleDateString()}
                                     </Typography>
-                                    
                                 </CardContent>
+
                                 {/* shows the rename actions only for one file at a time */}
                                 {file.shareCode && (
                                     <Typography variant="body2" color="text.secondary" sx={{marginLeft: '16px'}}>
@@ -276,9 +396,6 @@ export default function HomePage() {
                                 )}
                                 
                                 <CardActions>
-                                    <Button onClick={(e) => {e.stopPropagation(); handleDelete(file._id)}}>
-                                        DELETE
-                                    </Button>
                                     <Button onClick={() => {
                                         const isEditing = renamingFile === file._id;
                                         setRenamingFile(isEditing ? '' : file._id);
@@ -294,13 +411,19 @@ export default function HomePage() {
                                             }}
                                         >SAVE</Button>
                                     }
-                                    <Button onClick={(e) => {e.stopPropagation(); requestFileShareCode(file._id);}}>Create sharecode</Button>
+                                    <Button onClick={() => {fileCloning(file._id)}}>COPY</Button>
+                                    <Button onClick={(e) => {e.stopPropagation(); handleDelete(file._id)}}>
+                                        DELETE
+                                    </Button>
+                                    <Button onClick={(e) => {e.stopPropagation(); requestFileShareCode(file._id);}}>
+                                        SHARECODE
+                                    </Button>
                                 </CardActions>
-
                                 </Card>
                             </Grid>
                         ))}
-                    </Grid>
+                </Grid>
+                )}
                 </Box>
             )}
 

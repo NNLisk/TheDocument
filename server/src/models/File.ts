@@ -15,7 +15,8 @@ export interface IFile {
     createdAt: Date,
     updatedAt: Date,
     shareCode: string,
-    usersWithEditRights: mongoose.Types.ObjectId[]
+    usersWithEditRights: mongoose.Types.ObjectId[],
+    trashcanned: boolean
 }
 
 const FileSchema = new Schema<IFile>({
@@ -24,7 +25,8 @@ const FileSchema = new Schema<IFile>({
     parent: { type: Schema.Types.ObjectId, ref: "Folder" },
     content: { type: String },
     shareCode: {type: String},
-    usersWithEditRights: [{type: Schema.Types.ObjectId, ref: "User"}]
+    usersWithEditRights: [{type: Schema.Types.ObjectId, ref: "User"}],
+    trashcanned: {type: Boolean, default: false}
 }, {timestamps: true})
 
 const File = mongoose.model<IFile>("File", FileSchema);
