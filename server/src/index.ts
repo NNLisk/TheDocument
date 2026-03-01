@@ -134,7 +134,9 @@ app.put('/api/user/file/:id', validateToken, async (req: AuthRequest, res: Respo
         const file = await File.findOne({_id: fileid})
         if (!file) return res.status(404).json({message: 'not found'});
         const isOwner = file.owner.equals(req.user!._id)
-        if (!isOwner) return res.status(403).json({message: 'unauthorized'});
+        const hasEditRights = file.usersWithEditRights.some(id => id.equals(req.user!._id));
+
+        if (!isOwner && !hasEditRights) return res.status(403).json({message: 'unauthorized'});
         file.content = req.body.content;
         await file.save()
         return res.status(200).json({message: `updated ${fileid}`})
