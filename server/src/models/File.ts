@@ -1,6 +1,12 @@
 import mongoose, { Document, mongo, Schema } from 'mongoose';
 import { v4 as uuidv4 } from "uuid";
 
+// some file explanations:
+// parent refers to the parent folder, if i make it
+// sharecode is the code used for non-authenticated 
+// view only doc reading
+// usersWithEditRights is all the users with edit rights
+
 export interface IFile {
     name: string,
     owner: mongoose.Types.ObjectId,

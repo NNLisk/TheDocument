@@ -7,16 +7,24 @@ import Link from "@tiptap/extension-link"
 import BulletList from "@tiptap/extension-bullet-list"
 import OrderedList from "@tiptap/extension-ordered-list"
 import { Box, Button, TextField, Typography } from "@mui/material"
+import html2pdf from "html2pdf.js";
+
+// component renders the Tiptap wysiwyg and
+// populates it with the content from the DB
+// based on the parameter id from the route
 
 export default function DocumentPage() {
     const { id } = useParams()
     const { token } = useAuth()
     const [statusMessage, setStatusMessage] = useState("")
     const [loaded, setLoaded] = useState(false)
+    const [content, setContent] = useState('')
 
+    // filesharing states
     const [isEditingAccess, setIsEditingAccess] = useState(false)
     const [emailToAccess, setEmailToAccess] = useState("")
 
+    // savetimer
     const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
     const editor = useEditor({
@@ -28,10 +36,13 @@ export default function DocumentPage() {
     ],
     content: "",
     onUpdate({ editor }) {
+
       const html = editor.getHTML()
+      setContent(html)
       if (saveTimer.current) clearTimeout(saveTimer.current)
       saveTimer.current = setTimeout(async () => {
         setStatusMessage('Saving...')
+
         const res = await fetch(`/api/user/file/${id}`, {
           method: 'PUT',
           headers: { 
@@ -44,7 +55,6 @@ export default function DocumentPage() {
         if (res.ok) {
             setStatusMessage('Content saved!')
         }
-
       }, 1000)
     }
   })
@@ -92,6 +102,24 @@ export default function DocumentPage() {
     fetchFile()
   }, [id, editor])
 
+  function downloadFilePDF() {
+    if (!editor) return;
+    const element = document.createElement("div");
+    element.innerHTML = content;
+
+    const options = {
+      filename: 'my-document.pdf',
+      margin: 1,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
+    } as const;
+
+
+    html2pdf().set(options).from(element).save();
+
+  }
+
   if (!editor) return null
 
   return (
@@ -128,8 +156,12 @@ export default function DocumentPage() {
         </Box>
       )}
 
+      <Box sx={{ mt: 2 }}>
+        <Button onClick={downloadFilePDF}>Download as PDF</Button>
+      </Box>
 
-      {/* toolbar */}
+
+      {/* Tiptap writing tools */}
       <Box sx={{ mb: 1 }}>
         <Button onClick={() => editor.chain().focus().toggleBold().run()}>B</Button>
         <Button onClick={() => editor.chain().focus().toggleItalic().run()}>I</Button>

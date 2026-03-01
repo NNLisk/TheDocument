@@ -1,5 +1,11 @@
 import { createContext, useContext, useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+
+
+// authcontext this is the component to pass login state related stuff to lower components
+// components can do const auth = useAuth(); to use this.
+// mainly manages the localstorage token
+// handles the session timeout also
+
 
 interface AuthContextType {
   token: string | null;

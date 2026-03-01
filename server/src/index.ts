@@ -16,14 +16,13 @@ import { registerValidator } from "./middleware/inputValidation";
 import { newRegistration } from "./utils/userUtils";
 import { AuthenticationError } from "./errors/errors";
 import { AuthRequest, validateToken } from "./middleware/tokenValidation";
-import { fileURLToPath } from "node:url";
 
 dotenv.config();
 
 const app = express();
 const port  = 1234;
 const MONGO_URI = "mongodb://localhost:27017/testDB";
-const SALT_ROUNDS = 10;
+const BCRYPT_SALT_ROUNDS = 10;
 
 
 const connectDB = async () => {
@@ -43,7 +42,12 @@ const connectDB = async () => {
 connectDB();
 app.use(express.json());
 
-// ROUTES
+
+/*  Project notes:
+/   Below are all routes used in the project
+/   
+/   
+*/
 
 app.post("/api/user/register", 
     registerValidator,
@@ -55,7 +59,7 @@ app.post("/api/user/register",
                 errors: errors.array()
             })
         }
-        const pw = await bcrypt.hash(req.body.password, SALT_ROUNDS);
+        const pw = await bcrypt.hash(req.body.password, BCRYPT_SALT_ROUNDS);
         console.log(pw);
         try {
             const newUser = await newRegistration(email, pw);
@@ -239,6 +243,7 @@ app.post('/api/user/giveAccessToFile/:id', validateToken, async (req: AuthReques
         const recipientUser = await User.findOne({email: recipient})
 
         if (!recipientUser) return res.status(404).json({message: 'Recipient not found'});
+        
         const updatedFile = await File.findByIdAndUpdate(
             fileid,
             {
@@ -255,7 +260,7 @@ app.post('/api/user/giveAccessToFile/:id', validateToken, async (req: AuthReques
     }
 })
 
-// Cors from week 12 assignments, since its the same stack
+// Cors settings from week 12 assignments, since its the same stack
 
 if (process.env.NODE_ENV === "development") {
     const corsOptions: CorsOptions = {

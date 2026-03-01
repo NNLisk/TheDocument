@@ -1,6 +1,7 @@
 import User, { IUser } from "../models/User";
 import { AuthenticationError } from '../errors/errors'
 
+// debloating the index.ts 
 
 export async function newRegistration(email: string, password: string) {
     console.log("creating a new user");

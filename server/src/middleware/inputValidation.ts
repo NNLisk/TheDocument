@@ -1,7 +1,7 @@
 import { body } from "express-validator";
 
-// validator checking the password and email against common rules.
-
+// express-validator checking the password and email against common rules.
+// used in the api routes as the middleware
 export const registerValidator = [
     body("email").trim().isEmail().withMessage("Invalid email"),
     body("password")
