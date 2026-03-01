@@ -57,7 +57,12 @@ export default function HomePage() {
             headers: { 'Authorization': `Bearer ${token}` }
         })
             const data = await res.json()
-            if (res.ok) setFiles(data.files)
+            if (res.ok) {
+                setFiles([
+                    ...data.files,
+                    ...data.filesWithEditRight
+                ])
+            }
     }
 
     async function handleNewFileCreation() {

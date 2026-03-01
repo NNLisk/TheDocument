@@ -16,6 +16,7 @@ import { registerValidator } from "./middleware/inputValidation";
 import { newRegistration } from "./utils/userUtils";
 import { AuthenticationError } from "./errors/errors";
 import { AuthRequest, validateToken } from "./middleware/tokenValidation";
+import { fileURLToPath } from "node:url";
 
 dotenv.config();
 
@@ -92,11 +93,16 @@ app.get('/api/user/foldercontent', validateToken, async (req: AuthRequest, res: 
       parent: req.query.parent || null 
     });
 
-    const files = await File.find({
+    const ownedfiles = await File.find({
         owner: req.user!._id,
         parent: req.query.parent || null,
     })
-    res.status(200).json({folders, files});
+
+    const filesWithEditRight = await File.find({
+        usersWithEditRights: req.user!._id
+    })
+    
+    res.status(200).json({folders, files: ownedfiles, filesWithEditRight});
   } catch (error) {
     res.status(500).json({ message: "Failed to fetch contents" });
   }
@@ -127,7 +133,8 @@ app.put('/api/user/file/:id', validateToken, async (req: AuthRequest, res: Respo
     try {
         const file = await File.findOne({_id: fileid})
         if (!file) return res.status(404).json({message: 'not found'});
-        if (file.owner.toString() !== req.user!._id.toString()) return res.status(403).json({message: 'unauthorized'});
+        const isOwner = file.owner.equals(req.user!._id)
+        if (!isOwner) return res.status(403).json({message: 'unauthorized'});
         file.content = req.body.content;
         await file.save()
         return res.status(200).json({message: `updated ${fileid}`})
@@ -140,11 +147,14 @@ app.put('/api/user/file/:id', validateToken, async (req: AuthRequest, res: Respo
 app.get('/api/user/file/:id', validateToken, async (req: AuthRequest, res: Response) => {
     
     const fileid = req.params.id;
-
+    
     try {
         const file = await File.findOne({ _id: fileid })
         if (!file) return res.status(404).json({ message: 'not found' });
-        if (file.owner.toString() !== req.user!._id.toString()) return res.status(403).json({ message: 'unauthorized' });
+        const isOwner = file.owner.equals(req.user!._id);
+        const hasEditRights = file.usersWithEditRights.some(id => id.equals(req.user!._id));
+
+        if (!isOwner && !hasEditRights) return res.status(403).json({message: 'unauthorized'})
         return res.status(200).json({file})
     } catch (error) {
         return res.status(500).json({ message: 'something went wrong' })
@@ -155,6 +165,7 @@ app.get('/api/user/file/:id', validateToken, async (req: AuthRequest, res: Respo
 app.delete('/api/user/file/:id', validateToken, async (req: AuthRequest, res: Response) => {
     const id = req.params.id;
     try {
+        
         const { deletedCount } = await File.deleteOne({_id: id})
         
         if (deletedCount == 1) {
@@ -177,7 +188,8 @@ app.put('/api/user/renamefile/:id', validateToken, async (req: AuthRequest, res:
         const file = await File.findOne({ _id: fileid })
         if (!file) return res.status(404).json({ message: 'not found' });
         if (!name) return res.status(400).json({message: 'no name given'})
-        if (file.owner.toString() !== req.user!._id.toString()) return res.status(403).json({ message: 'unauthorized' });
+        const isOwner = file.owner.equals(req.user!._id)
+        if (!isOwner) return res.status(403).json({message: 'unauthorized'});
         
         file.name = name;
         await file.save();
@@ -194,7 +206,8 @@ app.put('/api/user/createsharecode/:id', validateToken, async (req: AuthRequest,
     try {
         const file = await File.findOne({_id: fileid})
         if (!file) return res.status(404).json({ message: 'not found' });
-        if (file.owner.toString() !== req.user!._id.toString()) return res.status(403).json({ message: 'unauthorized' });
+        const isOwner = file.owner.equals(req.user!._id)
+        if (!isOwner) return res.status(403).json({message: 'unauthorized'});
         
         file.shareCode = uuid;
         await file.save();
@@ -216,9 +229,28 @@ app.get('/api/user/viewfilewithcode/:code', async (req, res) => {
     }
 })
 
-app.put('/api/user/giveAccessToFile/:id', validateToken, async (req: AuthRequest, res: Response) => {
-    const recipient = req.body.recipientEmail;
-    const recipientId = await User.findOne({email: recipient})
+app.post('/api/user/giveAccessToFile/:id', validateToken, async (req: AuthRequest, res: Response) => {
+
+    try {
+        const fileid = req.params.id;
+        const recipient = req.body.recipientEmail;
+        const recipientUser = await User.findOne({email: recipient})
+
+        if (!recipientUser) return res.status(404).json({message: 'Recipient not found'});
+        const updatedFile = await File.findByIdAndUpdate(
+            fileid,
+            {
+            $addToSet: { usersWithEditRights: recipientUser._id }
+            },
+            { new: true }
+        );
+        if (!updatedFile) {
+            return res.status(404).json({ message: "File not found" });
+        }
+        res.status(200).json(updatedFile);
+    } catch (error) {
+        res.status(500).json({ message: "something went wrong" });
+    }
 })
 
 // Cors from week 12 assignments, since its the same stack

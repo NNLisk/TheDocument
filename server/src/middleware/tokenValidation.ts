@@ -27,3 +27,5 @@ export const validateToken = (req: AuthRequest, res: Response, next: NextFunctio
         return res.status(401).json({message: "Token not found."})
     }
 }
+
+
