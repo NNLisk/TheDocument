@@ -4,7 +4,6 @@ import { body } from "express-validator";
 
 export const registerValidator = [
     body("email").trim().isEmail().withMessage("Invalid email"),
-    body("username").trim().isLength({min: 3, max: 25}).withMessage("Username must be 3-25 characters"),
     body("password")
     .trim()
     .isLength({min: 8})

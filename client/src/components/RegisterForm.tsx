@@ -13,7 +13,6 @@ export default function RegisterForm() {
 
 
     const [form, setForm] = useState({
-        username: "",
         password: "",
         email: ""
     })
@@ -40,7 +39,6 @@ export default function RegisterForm() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          username: form.username,
           password: form.password,
           email: form.email,
         }),
@@ -55,7 +53,7 @@ export default function RegisterForm() {
       
       console.log("Success:", data);
 
-      setForm({ username: "", password: "", email: ""});
+      setForm({password: "", email: ""});
 
     } catch (err) {
         if (err instanceof Error) {
@@ -92,15 +90,6 @@ export default function RegisterForm() {
                 label="Email"
                 type='email'
                 name='email'
-                variant="outlined"
-                fullWidth
-                onChange={handleChange}
-            />
-
-            <TextField
-                label="UserName"
-                type='text'
-                name='username'
                 variant="outlined"
                 fullWidth
                 onChange={handleChange}

@@ -7,24 +7,44 @@ import {
     Card,
     CardActions,
     CardContent,
+    FormControl,
     Grid,
+    InputLabel,
+    MenuItem,
+    Select,
     TextField,
     Typography
 } from "@mui/material"
+
+
+type TFile = {
+    _id: string,
+    name: string,
+    owner: string,
+    parent: string | null,
+    content: string,
+    createdAt: Date | string,
+    updatedAt: Date | string,
+    shareCode: string,
+}
 
 // this is the home page main view, basically everything under the header bar in the homepage
 
 export default function HomePage() {
 
     const { isLoggedIn, token } = useAuth();
-    const [error, setError] = useState("");
-    const [loading, setLoading] = useState(false);
+    const [errorInfoMessage, setErrorInfoMessage] = useState("");
 
-    const [files, setFiles] = useState<any[]>([]);
+    // filestates
+    const [isLoading, setIsLoading] = useState(false);
+    const [files, setFiles] = useState<TFile[]>([]);
+    const [shareCode, setShareCode] = useState("");
     
     // for file renaming
     const [newName, setNewName] = useState('');
     const [renamingFile, setRenamingFile] = useState('');
+
+    const [sortOption, setSortOption] = useState("dateCreatedDesc");
 
     const navigate = useNavigate();
 
@@ -40,9 +60,9 @@ export default function HomePage() {
             if (res.ok) setFiles(data.files)
     }
 
-    async function handleNewFile() {
+    async function handleNewFileCreation() {
 
-        setLoading(true);
+        setIsLoading(true);
          
         try {
             const response = await fetch('/api/user/newfile', {
@@ -57,21 +77,22 @@ export default function HomePage() {
             if (!response.ok) {
                 throw new Error(data.message)
             }
-            setFiles((prev:any) => [...prev, data ])
+            setFiles((prev:TFile[]) => [...prev, data ])
             //navigate(`/document/${data._id}`)
             
             
         } catch (error) {
             if (error instanceof Error) {
-                setError(error.message);
+                setErrorInfoMessage(error.message);
             } else {
-                setError("Something went wrong");
+                setErrorInfoMessage("Something went wrong");
             }
         } finally {
-            setLoading(false)
+            setIsLoading(false)
         }
     }
 
+    
 
     // Handler for the file deletion
     async function handleDelete(id: string) {
@@ -91,18 +112,20 @@ export default function HomePage() {
                 throw new Error(data.message || 'Something went wrong!')
             }
 
-            setFiles((prev: any) => prev.filter((file: any) => file._id !== id))
+            // i just refetch for this project
+            fetchFiles();
+
         } catch (error) {
             if (error instanceof Error) {
-                setError(error.message);
+                setErrorInfoMessage(error.message);
             } else {
-                setError("Something went wrong");
+                setErrorInfoMessage("Something went wrong");
             }
         }
     }
 
-    //handler for filerename
-    async function handleRename(id: string) {
+   
+    async function handleFileRenaming(id: string) {
         try {
             const response = await fetch(`/api/user/renamefile/${id}`, {
                 method: 'PUT',
@@ -115,14 +138,14 @@ export default function HomePage() {
 
             const data = await response.json()
             if (!response.ok) {
-                throw new Error(data.message || 'Something went wrong!')
+                throw new Error(data.message)
             }
             fetchFiles();
         } catch (error) {
             if (error instanceof Error) {
-                setError(error.message);
+                setErrorInfoMessage(error.message);
             } else {
-                setError("Something went wrong");
+                setErrorInfoMessage("Something went wrong");
             }
         } finally {
             setRenamingFile('');
@@ -130,23 +153,92 @@ export default function HomePage() {
         }
     }
 
+    async function requestFileShareCode(id: string) {
+
+        try {
+            const response = await fetch(`/api/user/createsharecode/${id}`, {
+                method: "PUT",
+                headers: {
+                    'Content-Type': 'Application/json',
+                    'Authorization': `Bearer ${token}`
+                }
+            })
+
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.message);
+            }
+
+            fetchFiles();
+
+        } catch (error) {
+            if (error instanceof Error) {
+                setErrorInfoMessage(error.message);
+            } else {
+                setErrorInfoMessage("Something went wrong");
+            }
+        }
+    }
+
+    // creates a sorted list from the dropdown option
+    const sortedFilesFromDropDown = [...files].sort((a, b) => {
+        switch (sortOption) {
+            case "dateCreatedAsc":
+                return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+            case "dateCreatedDesc":
+                return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+            case "nameAsc":
+                return a.name.localeCompare(b.name);
+            case "nameDesc":
+                return b.name.localeCompare(a.name);
+            default:
+                return 0;
+        }
+    });
+    
     return (
         <>
             {!isLoggedIn && (
-                <Typography> Log in or register to write documents! </Typography>
+                <Box sx={{mt: 2}}>
+                    <Typography> Log in or register to write documents! </Typography>
+                    <Typography>Or, if you have a sharecode, insert it here to view a file</Typography>
+                    <TextField 
+                        variant="outlined" 
+                        size="small" 
+                        placeholder="Sharecode" 
+                        sx={{ backgroundColor: "white", borderRadius: 1, mr: 1}}
+                        onChange={(e) => {setShareCode(e.target.value)}}
+                    />
+                    <Button color="inherit" onClick={() => {navigate(`/documentview/${shareCode}`)}}>View File</Button>
+
+                </Box>
             )}
             { isLoggedIn && (
                 <Box sx={{margin: '0 auto', maxWidth: 1000, px: 2, marginTop: '12px'}}>
-                    <Button color='inherit' onClick={handleNewFile} disabled={loading}>{loading ? "Creating document..." : "Create document"}</Button>
-                    {error && (
+                    <Button color='inherit' onClick={handleNewFileCreation} disabled={isLoading}>{isLoading ? "Creating document..." : "Create document"}</Button>
+
+                    <FormControl size="small" sx={{ minWidth: 200, mt: 2 }}>
+                        <InputLabel>Sort By</InputLabel>
+                        <Select
+                            value={sortOption}
+                            label="Sort By"
+                            onChange={(e) => setSortOption(e.target.value)}
+                        >
+                            <MenuItem value="dateCreatedDesc">Newest First</MenuItem>
+                            <MenuItem value="dateCreatedAsc">Oldest First</MenuItem>
+                            <MenuItem value="nameAsc">Name (A-Z)</MenuItem>
+                            <MenuItem value="nameDesc">Name (Z-A)</MenuItem>
+                        </Select>
+                    </FormControl>
+                    {errorInfoMessage && (
                         <Typography color="error" variant="body2" textAlign="center">
-                            {error}
+                            {errorInfoMessage}
                         </Typography>
                     )}
 
                     {/* Grid for file cards */}
                     <Grid container direction="column" spacing={2} mt={2}>
-                        {files.map((file: any) => (
+                        {sortedFilesFromDropDown.map((file: TFile) => (
                             <Grid /*size={{ xs: 12, sm: 6, md: 4}}*/ key={file._id}>
                                 <Card sx={{ cursor: 'pointer' }} >
 
@@ -156,10 +248,16 @@ export default function HomePage() {
                                     Created: {new Date(file.createdAt).toLocaleDateString()}
                                     </Typography>
                                     <Typography variant="body2" color="text.secondary">
-                                    last update {new Date(file.updatedAt).toLocaleDateString()}
+                                    Last Update {new Date(file.updatedAt).toLocaleDateString()}
                                     </Typography>
+                                    
                                 </CardContent>
                                 {/* shows the rename actions only for one file at a time */}
+                                {file.shareCode && (
+                                    <Typography variant="body2" color="text.secondary" sx={{marginLeft: '16px'}}>
+                                        ShareCode: {file.shareCode}
+                                    </Typography>
+                                )}
                                 {file._id.toString() == renamingFile && (
                                     <>
                                         <TextField
@@ -167,10 +265,11 @@ export default function HomePage() {
                                             value={newName}
                                             onChange={(e) => setNewName(e.target.value)}
                                             onClick={(e) => e.stopPropagation()}
-                                            sx={{marginLeft: '10px'}}
+                                            sx={{marginLeft: '16px'}}
                                         />
                                     </>
                                 )}
+                                
                                 <CardActions>
                                     <Button onClick={(e) => {e.stopPropagation(); handleDelete(file._id)}}>
                                         DELETE
@@ -186,10 +285,11 @@ export default function HomePage() {
                                         <Button
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                handleRename(file._id);
+                                                handleFileRenaming(file._id);
                                             }}
                                         >SAVE</Button>
                                     }
+                                    <Button onClick={(e) => {e.stopPropagation(); requestFileShareCode(file._id);}}>Create sharecode</Button>
                                 </CardActions>
 
                                 </Card>

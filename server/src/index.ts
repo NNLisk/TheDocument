@@ -6,6 +6,7 @@ import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 import path from "node:path";
 import { validationResult } from "express-validator";
+import { v4 as uuidv4 } from 'uuid'
 
 import User from "./models/User";
 import Folder from "./models/Folder";
@@ -44,10 +45,9 @@ app.use(express.json());
 // ROUTES
 
 app.post("/api/user/register", 
-    registerValidator, 
+    registerValidator,
     async(req: Request, res: Response) => {
         const email = req.body.email;
-        const username = req.body.username;
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
             return res.status(400).json({
@@ -57,7 +57,7 @@ app.post("/api/user/register",
         const pw = await bcrypt.hash(req.body.password, SALT_ROUNDS);
         console.log(pw);
         try {
-            const newUser = await newRegistration(email, username, pw);
+            const newUser = await newRegistration(email, pw);
             return res.status(200).json(newUser);
         } catch (e) {
             if (e instanceof AuthenticationError) {
@@ -80,7 +80,7 @@ app.post("/api/user/login", async (req, res) => {
 
     const secret = process.env.SECRET;
     if (!secret) return res.status(500).json({message: "Internal server error: missing secret key"});
-    const token = jwt.sign({_id: user._id, username: user.username || "guest"}, secret, {expiresIn: "1h"});
+    const token = jwt.sign({_id: user._id}, secret, {expiresIn: "1h"});
     return res.status(200).json({ token });
 })
 
@@ -185,6 +185,40 @@ app.put('/api/user/renamefile/:id', validateToken, async (req: AuthRequest, res:
     } catch (error) {
         return res.status(500).json({ message: 'something went wrong' })
     }
+})
+
+app.put('/api/user/createsharecode/:id', validateToken, async (req: AuthRequest, res: Response) => {
+    const fileid = req.params.id;
+    const uuid = uuidv4();
+    
+    try {
+        const file = await File.findOne({_id: fileid})
+        if (!file) return res.status(404).json({ message: 'not found' });
+        if (file.owner.toString() !== req.user!._id.toString()) return res.status(403).json({ message: 'unauthorized' });
+        
+        file.shareCode = uuid;
+        await file.save();
+        return res.status(200).json({file})
+    } catch (error) {
+        return res.status(500).json({ message: 'something went wrong' })
+    }
+})
+
+app.get('/api/user/viewfilewithcode/:code', async (req, res) => {
+    const code = req.params.code;
+
+    try {
+        const file = await File.findOne({shareCode: code})
+        if (!file) return res.status(404).json({ message: 'not found' });
+        return res.status(200).json(file);
+    } catch (error) {
+        return res.status(500).json({ message: 'something went wrong' })
+    }
+})
+
+app.put('/api/user/giveAccessToFile/:id', validateToken, async (req: AuthRequest, res: Response) => {
+    const recipient = req.body.recipientEmail;
+    const recipientId = await User.findOne({email: recipient})
 })
 
 // Cors from week 12 assignments, since its the same stack

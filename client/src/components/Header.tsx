@@ -44,7 +44,7 @@ export default function TopBar() {
                         TypeWriter
                     </Typography>
                     {isLoggedIn && (
-                        <Button color="inherit" onClick={() => {logout; navigate('/')}}>Logout</Button>
+                        <Button color="inherit" onClick={() => {logout(); navigate('/')}}>Logout</Button>
                     )}
                     {!isLoggedIn && (
                         <>

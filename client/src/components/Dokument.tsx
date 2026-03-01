@@ -6,13 +6,17 @@ import StarterKit from "@tiptap/starter-kit"
 import Link from "@tiptap/extension-link"
 import BulletList from "@tiptap/extension-bullet-list"
 import OrderedList from "@tiptap/extension-ordered-list"
-import { Box, Button, Typography } from "@mui/material"
+import { Box, Button, TextField, Typography } from "@mui/material"
 
 export default function DocumentPage() {
     const { id } = useParams()
     const { token } = useAuth()
     const [statusMessage, setStatusMessage] = useState("")
     const [loaded, setLoaded] = useState(false)
+
+    const [isEditingAccess, setIsEditingAccess] = useState(false)
+    const [emailToAccess, setEmailToAccess] = useState("")
+
     const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
     const editor = useEditor({
@@ -28,7 +32,7 @@ export default function DocumentPage() {
       if (saveTimer.current) clearTimeout(saveTimer.current)
       saveTimer.current = setTimeout(async () => {
         setStatusMessage('Saving...')
-        const response = await fetch(`/api/user/file/${id}`, {
+        const res = await fetch(`/api/user/file/${id}`, {
           method: 'PUT',
           headers: { 
             'Content-Type': 'application/json', 
@@ -37,13 +41,35 @@ export default function DocumentPage() {
           body: JSON.stringify({ content: html })
         })
 
-        if (response.ok) {
+        if (res.ok) {
             setStatusMessage('Content saved!')
         }
 
       }, 1000)
     }
   })
+
+  async function giveAccessToFile() {
+
+
+    try {
+      const res = await fetch(`/api/user/giveAccessToFile/${id}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'Application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({recipientEmail: emailToAccess})
+      })
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+      setStatusMessage('File shared!')
+    } catch (error) {
+      if (error instanceof Error) setStatusMessage(error.message);
+      else setStatusMessage("Something went wrong");
+    }
+  }
 
   useEffect(() => {
     async function fetchFile() {
@@ -61,7 +87,6 @@ export default function DocumentPage() {
         else setStatusMessage("Something went wrong")
       } finally {
         setLoaded(true)
-        setStatusMessage('Content loaded')
       }
     }
     fetchFile()
@@ -79,10 +104,30 @@ export default function DocumentPage() {
       px: 2
     }}>
       {statusMessage && (
-        <Typography color="gray" variant="body2" textAlign="center">
+        <Typography color="gray" variant="body2" textAlign="left">
           {statusMessage}
         </Typography>
       )}
+
+      
+      {isEditingAccess && (
+        <Box sx={{ mt: 2 }}>
+          <TextField
+          size="small"
+          onChange={(e) => setEmailToAccess(e.target.value)}
+          sx={{marginLeft: '16px'}}
+          placeholder="Email of the recipient"
+          />
+          <Button onClick={giveAccessToFile}>Share</Button>
+          <Button onClick={() => {setIsEditingAccess(false)}}>Cancel</Button>
+        </Box>
+      )}
+      {!isEditingAccess && (
+        <Box sx={{ mt: 2}}>
+          <Button onClick={() => {setIsEditingAccess(true)}}>Share</Button>
+        </Box>
+      )}
+
 
       {/* toolbar */}
       <Box sx={{ mb: 1 }}>

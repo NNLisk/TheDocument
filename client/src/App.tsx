@@ -5,6 +5,7 @@ import TopBar from './components/Header'
 import RegisterForm from './components/RegisterForm'
 import Dokument from './components/Dokument'
 import HomePage from './components/HomePage'
+import ViewDok from './components/ViewDok'
 
 import { AuthProvider } from './components/AuthContext'
 
@@ -29,6 +30,11 @@ function App() {
               <Dokument></Dokument>
             </>
           }/>
+          <Route path='/documentview/:code' element={
+            <>
+              <ViewDok></ViewDok>
+            </>
+          }/> 
         </Routes>
       </BrowserRouter>
     </AuthProvider>
